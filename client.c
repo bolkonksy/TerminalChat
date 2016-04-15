@@ -16,27 +16,25 @@
 #define FALSE             0
 
 volatile sig_atomic_t run_loop;
-volatile sig_atomic_t sig_socket = -1;
 
 void sigint_handler (int sig)
 {
     write (STDOUT_FILENO, "\n\nSIGINT cought\n", 16);
-    write (sig_socket, "/quit\n", 6);
     run_loop = FALSE;
 }
 
-void error(char* msg)
+void error (char* msg)
 {
-    perror(msg);
-    exit(EXIT_FAILURE);
+    perror (msg);
+    exit (EXIT_FAILURE);
 }
 
-int main(int argc, char *argv[])
+int main (int argc, char *argv[])
 {
     run_loop = TRUE;
 
     int     sock_fd, port_num, n;
-    char    msg_buffer[MSG_BUFFER_SIZE]; // Fer sending messages
+    char    msg_buffer[MSG_BUFFER_SIZE]; // For sending messages
     char    rcv_buffer[RCV_BUFFER_SIZE]; // For receiving messages
     struct sockaddr_in serv_addr;
     struct hostent *server;
@@ -67,13 +65,10 @@ int main(int argc, char *argv[])
     if (sock_fd == -1)
         error ("ERROR opening socket");
     puts ("Socket created...");
-    sig_socket = sock_fd;
 
     server = gethostbyname (argv[1]);
-    if (server == NULL) {
-        fprintf (stderr, "ERROR resloving host");
-        return -1;
-    }
+    if (server == NULL)
+        error ("ERROR resloving host");
 
     memset ((char*)&serv_addr, 0, sizeof (serv_addr));
 
@@ -83,7 +78,8 @@ int main(int argc, char *argv[])
             (char*)server->h_addr, 
             server->h_length);
 
-    if (connect (sock_fd, (struct sockaddr*)&serv_addr, sizeof (serv_addr)) == -1)
+    if (connect (sock_fd, (struct sockaddr*)&serv_addr,
+                 sizeof (serv_addr)) == -1)
         error ("ERROR connecting");
     puts ("Connection established...");
 
@@ -110,31 +106,38 @@ int main(int argc, char *argv[])
                     rcv_buffer[n] = '\n';
                     if (n < 0)
                         error ("ERROR reading from socket");
-                    printf (" %s", rcv_buffer);
+
+                    if (strlen(rcv_buffer) == 5 && rcv_buffer[0] == '/'
+                             && rcv_buffer[1] == 'E' && rcv_buffer[2] == 'S'
+                             && rcv_buffer[3] == 'C') {
+                        run_loop = FALSE;
+                        break;
+                    } else 
+                        printf ("%s", rcv_buffer);
                 }
                 /* Keyboard input */
                 else if (fd == STDIN_FILENO) {
                     memset (msg_buffer, 0, MSG_BUFFER_SIZE);
                     fgets (msg_buffer, MSG_BUFFER_SIZE, stdin);
 
-                    n = write (sock_fd, msg_buffer, strlen (msg_buffer));
-                    if (n < 0)
-                        error ("ERROR writing to socket");
-
-                    /* If user is quiting */
+                    /* User is quiting */
                     if (strlen(msg_buffer) == 6 && msg_buffer[0] == '/'
-                             && msg_buffer[1] == 'q' && msg_buffer[2] == 'u'
-                             && msg_buffer[3] == 'i'  && msg_buffer[4] == 't') {
+                        && msg_buffer[1] == 'q' && msg_buffer[2] == 'u'
+                        && msg_buffer[3] == 'i'  && msg_buffer[4] == 't') {
                         run_loop = FALSE;
+                        break;
+                    } else {
+                        n = write (sock_fd, msg_buffer, strlen (msg_buffer));
+                        if (n < 0)
+                            error ("ERROR writing to socket");
                     }
                 }
-            }
-        }
-
-    }
+            } // if FD_ISSET
+        } // fd for loop
+    } // while run_loop
+    write (sock_fd, "/quit\n", 6);
     close (sock_fd);
     puts ("Quiting...");
 
     return 0;
 }
-// signal control

@@ -57,6 +57,17 @@ int make_socket (int port, struct sockaddr_in *name)
     return sock;
 }
 
+void send_to_sockets(int* sockets, char msg[MSG_BUFFER_SIZE]) 
+{
+    for (size_t i = 0; i < MAX_CLIENTS; i++) {
+        if (sockets[i] > 0) {
+            int ret = write (sockets[i], msg, MSG_BUFFER_SIZE);
+            if (ret < 0)
+                error ("ERROR writing to socket");
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     run_loop = TRUE;
@@ -152,6 +163,10 @@ int main(int argc, char *argv[])
                                 break;
                             }       
                         }
+                        /* Inform other clients */
+                        sprintf (msg_buffer, "User [%zu] disconnected\n", fd);
+                        send_to_sockets (clisock_fd, msg_buffer);
+                        printf ("User [%zu] disconnected\n", fd);
                     }
                     // User sent a message
                     else {
@@ -163,18 +178,26 @@ int main(int argc, char *argv[])
                         fprintf (stdout, msg_buffer);
 
                         // send to all
-                        for (size_t i = 0; i < MAX_CLIENTS; i++) {
+                        send_to_sockets (clisock_fd, msg_buffer);
+                        /*for (size_t i = 0; i < MAX_CLIENTS; i++) {
                             if (clisock_fd[i] > 0 && fd != clisock_fd[i] ) {
                                 n = write (clisock_fd[i], msg_buffer, MSG_BUFFER_SIZE);
                                 if (n < 0)
                                     error ("ERROR writing to socket");
                             }
-                        }
+                        }*/
                     }
                 }
             } // if FD_ISSET 
-        } // fd loop
-    } // run_loop
+        } // fd for loop
+    } // while run_loop
+
+    sprintf (msg_buffer, "Server closing connection...\n");
+    send_to_sockets (clisock_fd, msg_buffer);
+    /* Command to terminate running clients */
+    sprintf (msg_buffer, "/ESC\n");
+    send_to_sockets (clisock_fd, msg_buffer);
+    usleep (100);
 
     puts ("Closing all sockets...");
     for (size_t i = 0; i < MAX_CLIENTS; i++) {
@@ -189,4 +212,3 @@ int main(int argc, char *argv[])
     puts ("Exiting...");
     return 0;
 }
-
