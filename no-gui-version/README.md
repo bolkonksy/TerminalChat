@@ -1,5 +1,5 @@
 # TerminalChat
-A simple chat application for Linux written in C language using ncurses library for basic GUI.
+This is a no-gui version. Start the server on any port and then connect with the clients.
 
 ### How to use:
 1. Run `make all` to compile everything
